@@ -1,8 +1,34 @@
+from typing import Any
 import requests
 from bs4 import BeautifulSoup, ResultSet, Tag
 from http import HTTPStatus
 from dataclasses import dataclass
 import csv
+
+WORKSPACE_CATEGORY_BASE_URL = "https://workspace.google.com/marketplace/category"
+WORKSPACE_CATEGORIES = [
+    "intelligent-apps",
+    "work-from-everywhere",
+    "business-essentials",
+    "apps-to-discover",
+    "google-apps",
+    "popular-apps",
+    "top-rated",
+    "business-tools/accounting-and-finance",
+    "business-tools/administration-and-management",
+    "business-tools/erp-and-logistics",
+    "business-tools/hr-and-legal",
+    "business-tools/marketing-and-analytics",
+    "business-tools/sales-and-crm",
+    "productivity/creative-tools",
+    "productivity/web-development",
+    "productivity/office-applications",
+    "productivity/task-management",
+    "education/academic-resources",
+    "education/teacher-and-admin-tools",
+    "communication",
+    "utilities",
+]
 
 
 def main():
@@ -12,35 +38,37 @@ def main():
             file, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
         )
 
-        res = requests.get(
-            "https://workspace.google.com/marketplace/category/intelligent-apps"
+        for category in WORKSPACE_CATEGORIES:
+            scrape_from_page(f"{WORKSPACE_CATEGORY_BASE_URL}/{category}", writer)
+
+
+def scrape_from_page(url: str, writer: Any):
+
+    res = requests.get(url)
+
+    if res.status_code != HTTPStatus.OK:
+        raise Exception(
+            f"HTTP request for workspace results failed. Expected 200, got {res.status_code}: {res.text}"
         )
 
-        if res.status_code != HTTPStatus.OK:
-            raise Exception(
-                f"HTTP request for workspace results failed. Expected 200, got {res.status_code}: {res.text}"
-            )
+    soup = BeautifulSoup(res.text, features="html.parser")
 
-        soup = BeautifulSoup(res.text, features="html.parser")
+    apps: ResultSet[Tag] = soup.find_all(lambda tag: tag.has_attr("data-card-index"))
 
-        apps: ResultSet[Tag] = soup.find_all(
-            lambda tag: tag.has_attr("data-card-index")
+    if len(apps) == 0:
+        raise Exception("invalid HTML locator for entries")
+
+    for app in apps:
+        extracted = extract_app(app)
+        writer.writerow(
+            [
+                extracted.name,
+                extracted.developer,
+                extracted.description,
+                extracted.average_rating,
+                extracted.user_count,
+            ]
         )
-
-        if len(apps) == 0:
-            raise Exception("invalid HTML locator for entries")
-
-        for app in apps:
-            extracted = extract_app(app)
-            writer.writerow(
-                [
-                    extracted.name,
-                    extracted.developer,
-                    extracted.description,
-                    extracted.average_rating,
-                    extracted.user_count,
-                ]
-            )
 
 
 @dataclass
