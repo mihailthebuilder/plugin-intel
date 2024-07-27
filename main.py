@@ -1,5 +1,11 @@
+import requests
+
+
 def main():
-    pass
+    res = requests.get(
+        "https://workspace.google.com/marketplace/category/intelligent-apps"
+    )
+    print(res.text)
 
 
 if __name__ == "__main__":
