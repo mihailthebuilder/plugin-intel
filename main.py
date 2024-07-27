@@ -39,7 +39,12 @@ def main():
         )
 
         for category in WORKSPACE_CATEGORIES:
-            scrape_from_page(f"{WORKSPACE_CATEGORY_BASE_URL}/{category}", writer)
+            url = f"{WORKSPACE_CATEGORY_BASE_URL}/{category}"
+            try:
+                scrape_from_page(url, writer)
+            except Exception as e:
+                e.add_note(f"url scraped: {url}")
+                raise e
 
 
 def scrape_from_page(url: str, writer: Any):
