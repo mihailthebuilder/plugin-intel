@@ -1,6 +1,7 @@
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, ResultSet, Tag
 from http import HTTPStatus
+from dataclasses import dataclass
 
 
 def main():
@@ -15,12 +16,67 @@ def main():
 
     soup = BeautifulSoup(res.text, features="html.parser")
 
-    entries = soup.find_all(lambda tag: tag.has_attr("data-card-index"))
+    apps: ResultSet[Tag] = soup.find_all(lambda tag: tag.has_attr("data-card-index"))
 
-    if len(entries) == 0:
-        raise Exception("Can't locate HTML element for entries")
+    if len(apps) == 0:
+        raise Exception("invalid HTML locator for entries")
 
-    print(f"Found {len(entries)} addons")
+    app = apps[0]
+
+    print(extract_app(app))
+
+
+@dataclass
+class App:
+    name: str
+    developer: str
+    description: str
+    average_rating: int | None
+    user_count: int
+
+
+def extract_app(soup: Tag) -> App:
+    name = soup.find("div", {"class": "M0atNd"})
+    if name == None:
+        raise Exception("invalid html locator for name")
+
+    developer = soup.find("span", {"class": "y51Cnd"})
+    if developer == None:
+        raise Exception("invalid html locator for developer")
+
+    description = soup.find("div", {"class": "BiEFEd"})
+    if description == None:
+        raise Exception("invalid html locator for description")
+
+    averagerating_usercount_container: ResultSet[Tag] = soup.find_all(
+        "span", {"class": "wUhZA"}
+    )
+    if (
+        len(averagerating_usercount_container) > 2
+        or len(averagerating_usercount_container) == 0
+    ):
+        raise Exception("invalid html locator for average rating and user count")
+
+    usercount_string = averagerating_usercount_container[-1].text.strip()
+    usercount = 0
+    if usercount_string[-2:] == "K+":
+        usercount = int(usercount_string.replace("K+", "")) * 1000
+    if usercount_string[-2:] == "M+":
+        usercount = int(usercount_string.replace("M+", "")) * 1000000
+
+    app = App(
+        name=name.text,
+        developer=developer.text,
+        description=description.text,
+        user_count=usercount,
+        average_rating=None,
+    )
+
+    if len(averagerating_usercount_container) == 2:
+        averagerating = int(averagerating_usercount_container[0].text.replace(".", ""))
+        app.average_rating = averagerating
+
+    return app
 
 
 if __name__ == "__main__":
