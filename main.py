@@ -2,28 +2,45 @@ import requests
 from bs4 import BeautifulSoup, ResultSet, Tag
 from http import HTTPStatus
 from dataclasses import dataclass
+import csv
 
 
 def main():
-    res = requests.get(
-        "https://workspace.google.com/marketplace/category/intelligent-apps"
-    )
+    with open("apps.csv", "w", newline="", encoding="utf-8") as file:
 
-    if res.status_code != HTTPStatus.OK:
-        raise Exception(
-            f"HTTP request for workspace results failed. Expected 200, got {res.status_code}: {res.text}"
+        writer = csv.writer(
+            file, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
         )
 
-    soup = BeautifulSoup(res.text, features="html.parser")
+        res = requests.get(
+            "https://workspace.google.com/marketplace/category/intelligent-apps"
+        )
 
-    apps: ResultSet[Tag] = soup.find_all(lambda tag: tag.has_attr("data-card-index"))
+        if res.status_code != HTTPStatus.OK:
+            raise Exception(
+                f"HTTP request for workspace results failed. Expected 200, got {res.status_code}: {res.text}"
+            )
 
-    if len(apps) == 0:
-        raise Exception("invalid HTML locator for entries")
+        soup = BeautifulSoup(res.text, features="html.parser")
 
-    app = apps[0]
+        apps: ResultSet[Tag] = soup.find_all(
+            lambda tag: tag.has_attr("data-card-index")
+        )
 
-    print(extract_app(app))
+        if len(apps) == 0:
+            raise Exception("invalid HTML locator for entries")
+
+        for app in apps:
+            extracted = extract_app(app)
+            writer.writerow(
+                [
+                    extracted.name,
+                    extracted.developer,
+                    extracted.description,
+                    extracted.average_rating,
+                    extracted.user_count,
+                ]
+            )
 
 
 @dataclass
