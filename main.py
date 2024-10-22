@@ -1,10 +1,8 @@
-from typing import Any
 import requests
 from bs4 import BeautifulSoup, ResultSet, Tag
 from http import HTTPStatus
 from dataclasses import dataclass
 import csv
-from urllib.parse import urlparse
 
 WORKSPACE_CATEGORY_BASE_URL = "https://workspace.google.com/marketplace/category"
 WORKSPACE_CATEGORIES = [
@@ -32,23 +30,46 @@ WORKSPACE_CATEGORIES = [
 ]
 
 
-def main():
-    with open("apps.csv", "w", newline="", encoding="utf-8") as file:
+@dataclass
+class App:
+    name: str
+    developer: str
+    description: str
+    average_rating: int | None
+    user_count: int
+    url: str
 
+
+def main():
+    apps: dict[str, App] = {}
+
+    for category in WORKSPACE_CATEGORIES:
+        url = f"{WORKSPACE_CATEGORY_BASE_URL}/{category}"
+        try:
+            scrape_from_page(url, apps)
+        except Exception as e:
+            e.add_note(f"url scraped: {url}")
+            raise e
+
+    with open("apps.csv", "w", newline="", encoding="utf-8") as file:
         writer = csv.writer(
             file, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
         )
 
-        for category in WORKSPACE_CATEGORIES:
-            url = f"{WORKSPACE_CATEGORY_BASE_URL}/{category}"
-            try:
-                scrape_from_page(url, writer)
-            except Exception as e:
-                e.add_note(f"url scraped: {url}")
-                raise e
+        for app in apps.values():
+            writer.writerow(
+                [
+                    app.name,
+                    app.developer,
+                    app.description,
+                    app.average_rating,
+                    app.user_count,
+                    app.url,
+                ]
+            )
 
 
-def scrape_from_page(url: str, writer: Any):
+def scrape_from_page(url: str, apps: dict[str, App]):
 
     res = requests.get(url)
 
@@ -68,25 +89,7 @@ def scrape_from_page(url: str, writer: Any):
 
     for app_soup in app_soups:
         extracted = extract_app(app_soup)
-        writer.writerow(
-            [
-                extracted.name,
-                extracted.developer,
-                extracted.description,
-                extracted.average_rating,
-                extracted.user_count,
-            ]
-        )
-
-
-@dataclass
-class App:
-    name: str
-    developer: str
-    description: str
-    average_rating: int | None
-    user_count: int
-    url: str
+        apps[extracted.name] = extracted
 
 
 def extract_app(soup: Tag) -> App:
