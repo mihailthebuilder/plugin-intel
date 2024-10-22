@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from http import HTTPStatus
 from dataclasses import dataclass
 import csv
+from urllib.parse import urlparse
 
 WORKSPACE_CATEGORY_BASE_URL = "https://workspace.google.com/marketplace/category"
 WORKSPACE_CATEGORIES = [
@@ -83,6 +84,7 @@ class App:
     description: str
     average_rating: int | None
     user_count: int
+    url: str
 
 
 def extract_app(soup: Tag) -> App:
@@ -97,6 +99,22 @@ def extract_app(soup: Tag) -> App:
     description = soup.find("div", {"class": "BiEFEd"})
     if description == None:
         raise Exception("invalid html locator for description")
+
+    anchorWithUrl = soup.find("a", {"class": "RwHvCd"})
+    if anchorWithUrl == None:
+        raise Exception("invalid html locator for url - can't find element")
+
+    if type(anchorWithUrl) is not Tag:
+        raise Exception("invalid html locator for url - can only find string")
+
+    url = anchorWithUrl["href"]
+    if url == None:
+        raise Exception("invalid html locator for url - can't find valid href")
+
+    if type(url) is not str:
+        raise Exception(
+            "invalid html locator for url - can't find valid href with type str"
+        )
 
     averagerating_usercount_container: ResultSet[Tag] = soup.find_all(
         "span", {"class": "wUhZA"}
@@ -120,6 +138,7 @@ def extract_app(soup: Tag) -> App:
         description=description.text,
         user_count=usercount,
         average_rating=None,
+        url=url,
     )
 
     if len(averagerating_usercount_container) == 2:
@@ -127,6 +146,11 @@ def extract_app(soup: Tag) -> App:
         app.average_rating = averagerating
 
     return app
+
+
+def extract_path(url: str) -> str:
+    parts = url.split("/")
+    return "/".join(parts[-2:])
 
 
 if __name__ == "__main__":
