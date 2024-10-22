@@ -45,11 +45,7 @@ def main():
 
     for category in WORKSPACE_CATEGORIES:
         url = f"{WORKSPACE_CATEGORY_BASE_URL}/{category}"
-        try:
-            scrape_from_page(url, apps)
-        except Exception as e:
-            e.add_note(f"url scraped: {url}")
-            raise e
+        scrape_from_page(url, apps)
 
     with open("apps.csv", "w", newline="", encoding="utf-8") as file:
         writer = csv.writer(
@@ -70,26 +66,30 @@ def main():
 
 
 def scrape_from_page(url: str, apps: dict[str, App]):
+    try:
+        res = requests.get(url)
 
-    res = requests.get(url)
+        if res.status_code != HTTPStatus.OK:
+            raise Exception(
+                f"HTTP request for workspace results failed. Expected 200, got {res.status_code}: {res.text}"
+            )
 
-    if res.status_code != HTTPStatus.OK:
-        raise Exception(
-            f"HTTP request for workspace results failed. Expected 200, got {res.status_code}: {res.text}"
+        soup = BeautifulSoup(res.text, features="html.parser")
+
+        app_soups: ResultSet[Tag] = soup.find_all(
+            lambda tag: tag.has_attr("data-card-index")
         )
 
-    soup = BeautifulSoup(res.text, features="html.parser")
+        if len(app_soups) == 0:
+            raise Exception("invalid HTML locator for entries")
 
-    app_soups: ResultSet[Tag] = soup.find_all(
-        lambda tag: tag.has_attr("data-card-index")
-    )
+        for app_soup in app_soups:
+            extracted = extract_app(app_soup)
+            apps[extracted.name] = extracted
 
-    if len(app_soups) == 0:
-        raise Exception("invalid HTML locator for entries")
-
-    for app_soup in app_soups:
-        extracted = extract_app(app_soup)
-        apps[extracted.name] = extracted
+    except Exception as e:
+        e.add_note(f"url scraped: {url}")
+        raise e
 
 
 def extract_app(soup: Tag) -> App:
