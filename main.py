@@ -59,13 +59,15 @@ def scrape_from_page(url: str, writer: Any):
 
     soup = BeautifulSoup(res.text, features="html.parser")
 
-    apps: ResultSet[Tag] = soup.find_all(lambda tag: tag.has_attr("data-card-index"))
+    app_soups: ResultSet[Tag] = soup.find_all(
+        lambda tag: tag.has_attr("data-card-index")
+    )
 
-    if len(apps) == 0:
+    if len(app_soups) == 0:
         raise Exception("invalid HTML locator for entries")
 
-    for app in apps:
-        extracted = extract_app(app)
+    for app_soup in app_soups:
+        extracted = extract_app(app_soup)
         writer.writerow(
             [
                 extracted.name,
