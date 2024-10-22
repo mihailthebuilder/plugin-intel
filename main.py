@@ -3,31 +3,13 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from http import HTTPStatus
 from dataclasses import dataclass
 import csv
+from search_terms import WORKSPACE_SEARCH_TERMS
+from categories import WORKSPACE_CATEGORIES
+from urllib.parse import quote
+
 
 WORKSPACE_CATEGORY_BASE_URL = "https://workspace.google.com/marketplace/category"
-WORKSPACE_CATEGORIES = [
-    "intelligent-apps",
-    "work-from-everywhere",
-    "business-essentials",
-    "apps-to-discover",
-    "google-apps",
-    "popular-apps",
-    "top-rated",
-    "business-tools/accounting-and-finance",
-    "business-tools/administration-and-management",
-    "business-tools/erp-and-logistics",
-    "business-tools/hr-and-legal",
-    "business-tools/marketing-and-analytics",
-    "business-tools/sales-and-crm",
-    "productivity/creative-tools",
-    "productivity/web-development",
-    "productivity/office-applications",
-    "productivity/task-management",
-    "education/academic-resources",
-    "education/teacher-and-admin-tools",
-    "communication",
-    "utilities",
-]
+WORKSPACE_SEARCH_BASE_URL = "https://workspace.google.com/marketplace/search"
 
 
 @dataclass
@@ -41,12 +23,24 @@ class App:
 
 
 def main():
-    apps: dict[str, App] = {}
 
-    for category in WORKSPACE_CATEGORIES:
-        url = f"{WORKSPACE_CATEGORY_BASE_URL}/{category}"
+    category_urls = [
+        f"{WORKSPACE_CATEGORY_BASE_URL}/{category}" for category in WORKSPACE_CATEGORIES
+    ]
+
+    search_urls = [
+        f"{WORKSPACE_SEARCH_BASE_URL}/{quote(search_term)}"
+        for search_term in WORKSPACE_SEARCH_TERMS
+    ]
+
+    urls = category_urls + search_urls
+
+    apps: dict[str, App] = {}
+    for url in urls:
+        print("scraping", url)
         scrape_from_page(url, apps)
 
+    print("writing to file")
     with open("apps.csv", "w", newline="", encoding="utf-8") as file:
         writer = csv.writer(
             file, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
@@ -81,7 +75,7 @@ def scrape_from_page(url: str, apps: dict[str, App]):
         )
 
         if len(app_soups) == 0:
-            raise Exception("invalid HTML locator for entries")
+            print("no apps found on page", url)
 
         for app_soup in app_soups:
             extracted = extract_app(app_soup)
