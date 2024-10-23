@@ -46,6 +46,10 @@ def main():
             file, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
         )
 
+        writer.writerow(
+            ["name", "developer", "description", "average_rating", "user_count", "url"]
+        )
+
         for app in apps.values():
             writer.writerow(
                 [
@@ -54,7 +58,7 @@ def main():
                     app.description,
                     app.average_rating,
                     app.user_count,
-                    app.url,
+                    "https://workspace.google.com/marketplace/app/" + app.url,
                 ]
             )
 
@@ -137,7 +141,7 @@ def extract_app(soup: Tag) -> App:
         description=description.text,
         user_count=usercount,
         average_rating=None,
-        url=url,
+        url=extract_path(url),
     )
 
     if len(averagerating_usercount_container) == 2:
